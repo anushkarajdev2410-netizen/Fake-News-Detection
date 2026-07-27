@@ -1,0 +1,9 @@
+# Ignore large files
+datasets/cleaned_news.csv
+models/all_trained_models.pkl
+
+# Other generated files
+*.pkl
+*.model
+*.npy
+*.npz
