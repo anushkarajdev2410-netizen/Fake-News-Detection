@@ -1,1 +1,2 @@
+*.csv filter=lfs diff=lfs merge=lfs -text
 datasets/model_comparison_results.csv !text !filter !merge !diff
