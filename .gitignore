@@ -26,3 +26,6 @@ models/*.model.*
 
 datasets/cleaned_news.csv
 datasets/cleaned_news.csv
+
+models/all_trained_models.pkl
+Datasets/cleaned_news.csv
