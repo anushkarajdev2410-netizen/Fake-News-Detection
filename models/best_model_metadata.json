@@ -1,0 +1,12 @@
+{
+  "model_name": "SVM_TFIDF",
+  "feature_type": "tfidf",
+  "metrics": {
+    "Model": "SVM_TFIDF",
+    "Accuracy": 0.9858990944372574,
+    "Precision": 0.985653809971778,
+    "Recall": 0.9886765746638358,
+    "F1": 0.9871628783417736,
+    "ROC_AUC": 0.9981309401474447
+  }
+}

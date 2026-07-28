@@ -1,9 +1,25 @@
-# Ignore large files
-datasets/cleaned_news.csv
-models/all_trained_models.pkl
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
 
-# Other generated files
-*.pkl
-*.model
-*.npy
-*.npz
+# Jupyter
+.ipynb_checkpoints/
+
+# Data and model artifacts (regenerate via notebooks rather than committing large binaries)
+dataset/*.csv
+dataset/*.npy
+dataset/*.npz
+models/*.pkl
+models/*.model
+models/*.model.*
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Streamlit
+.streamlit/
