@@ -1,5 +1,5 @@
 """
-Fake News Detection - Streamlit Web Application 
+Fake News Detection - Streamlit Web Application (Phase 13)
 
 Loads the best model saved in Phase 12 (models/best_model.pkl), along with
 whichever feature-extraction artifact it depends on (TF-IDF vectorizer or
@@ -7,6 +7,7 @@ Word2Vec model), and serves an interactive UI: paste article text, get a
 Fake/Real prediction with a confidence score.
 
 Run with:  streamlit run app.py
+(Works regardless of which folder you run that command from -- see BASE_DIR below.)
 """
 
 import json
@@ -14,6 +15,7 @@ import pickle
 import re
 import string
 import html as html_lib
+from pathlib import Path
 
 import numpy as np
 import streamlit as st
@@ -21,6 +23,29 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
+
+# --------------------------------------------------------------------------
+# Path setup -- THIS IS THE FIX.
+#
+# Streamlit resolves relative paths like "models/best_model.pkl" against the
+# current working directory of the process that launched it, which changes
+# depending on whether you run `streamlit run app.py` from inside webapp/,
+# `streamlit run webapp/app.py` from the project root, or launch it from an
+# IDE "Run" button. That's what caused "Model files not found" even though
+# the files genuinely exist on disk.
+#
+# Fixing it properly: resolve every path relative to THIS FILE's own location
+# (__file__), which never changes no matter where the command is run from.
+# webapp/app.py -> BASE_DIR = webapp/ -> models/ is BASE_DIR.parent / "models".
+# --------------------------------------------------------------------------
+BASE_DIR = Path(__file__).resolve().parent
+MODELS_DIR = BASE_DIR.parent / "models"
+
+BEST_MODEL_PATH = MODELS_DIR / "best_model.pkl"
+METADATA_PATH = MODELS_DIR / "best_model_metadata.json"
+TFIDF_PATH = MODELS_DIR / "tfidf_vectorizer.pkl"
+WORD2VEC_PATH = MODELS_DIR / "word2vec.model"
+
 
 # --------------------------------------------------------------------------
 # Page configuration and styling
@@ -86,6 +111,11 @@ CUSTOM_CSS = """
         background-color: #2E5395;
         color: white;
     }
+    .path-debug {
+        font-size: 0.75rem;
+        color: #999;
+        font-family: monospace;
+    }
     footer {visibility: hidden;}
 </style>
 """
@@ -93,7 +123,7 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------
-# Text preprocessing \u2014 must exactly match the pipeline used in Phase 6,
+# Text preprocessing -- must exactly match the pipeline used in Phase 6,
 # or the model will receive differently-shaped/distributed input than it
 # was trained on and predictions will silently degrade.
 # --------------------------------------------------------------------------
@@ -149,16 +179,26 @@ def clean_text_pipeline(text: str):
 # --------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def load_artifacts():
-    with open("models/best_model.pkl", "rb") as f:
+    missing = [p for p in [BEST_MODEL_PATH, METADATA_PATH] if not p.exists()]
+    if missing:
+        raise FileNotFoundError(
+            "Missing: " + ", ".join(str(p) for p in missing)
+        )
+
+    with open(BEST_MODEL_PATH, "rb") as f:
         model = pickle.load(f)
-    with open("models/best_model_metadata.json", "r") as f:
+    with open(METADATA_PATH, "r") as f:
         metadata = json.load(f)
 
     if metadata["feature_type"] == "word2vec":
+        if not WORD2VEC_PATH.exists():
+            raise FileNotFoundError(f"Missing: {WORD2VEC_PATH}")
         from gensim.models import Word2Vec
-        feature_extractor = Word2Vec.load("models/word2vec.model")
+        feature_extractor = Word2Vec.load(str(WORD2VEC_PATH))
     else:
-        with open("models/tfidf_vectorizer.pkl", "rb") as f:
+        if not TFIDF_PATH.exists():
+            raise FileNotFoundError(f"Missing: {TFIDF_PATH}")
+        with open(TFIDF_PATH, "rb") as f:
             feature_extractor = pickle.load(f)
 
     return model, metadata, feature_extractor
@@ -201,6 +241,13 @@ with st.sidebar:
         st.caption(f"Test F1-score: {_meta['metrics'].get('F1', 0):.3f}")
     except Exception:
         st.caption("Model metadata unavailable.")
+
+    with st.expander("Debug: file paths"):
+        st.markdown(f'<p class="path-debug">App file: {Path(__file__).resolve()}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="path-debug">Models dir: {MODELS_DIR}</p>', unsafe_allow_html=True)
+        for p in [BEST_MODEL_PATH, METADATA_PATH, TFIDF_PATH, WORD2VEC_PATH]:
+            status = "\u2705 found" if p.exists() else "\u274c missing"
+            st.markdown(f'<p class="path-debug">{status}: {p.name}</p>', unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------
@@ -284,12 +331,16 @@ if predict_clicked:
                             f"outside sources."
                         )
 
-        except FileNotFoundError:
+        except FileNotFoundError as e:
             st.error(
-                "Model files not found. Make sure `models/best_model.pkl`, "
-                "`models/best_model_metadata.json`, and the matching vectorizer or "
-                "Word2Vec model have been generated (run notebooks 06\u201308) and placed "
-                "in the `models/` directory alongside this app."
+                f"Model files not found at the expected location.\n\n"
+                f"**Looked for them at:** `{MODELS_DIR}`\n\n"
+                f"**Missing:** {e}\n\n"
+                f"Fix: make sure `best_model.pkl`, `best_model_metadata.json`, and the matching "
+                f"vectorizer or Word2Vec model are all directly inside a `models/` folder that "
+                f"sits *next to* (not inside) your `webapp/` folder \u2014 i.e. `models/` and `webapp/` "
+                f"should be siblings under the same project root. Expand \u201cDebug: file paths\u201d "
+                f"in the sidebar to see exactly which path this app is checking and what it finds there."
             )
         except Exception as e:
             st.error(f"Something went wrong while analyzing this text: {e}")
